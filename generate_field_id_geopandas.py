@@ -52,7 +52,11 @@ TEXT_FIELD_NAME = "Field_ID_TEXT"
 # HELPERS
 # =========================
 def log(message: str) -> None:
-    print(message)
+    print(f"[INFO] {message}")
+
+
+def warn(message: str) -> None:
+    print(f"[WARN] {message}")
 
 
 def read_geodata(path: str, layer: str | None = None) -> gpd.GeoDataFrame:
@@ -64,6 +68,27 @@ def read_geodata(path: str, layer: str | None = None) -> gpd.GeoDataFrame:
 def validate_numeric_type(value: str) -> None:
     if value not in {"DOUBLE", "BIGINTEGER"}:
         raise ValueError("NUMERIC_FIELD_TYPE must be 'DOUBLE' or 'BIGINTEGER'")
+
+
+def validate_inputs() -> None:
+    if not Path(FIELDS_PATH).exists():
+        raise FileNotFoundError(f"Field dataset not found: {FIELDS_PATH}")
+
+    if not Path(COUNTY_PATH).exists():
+        raise FileNotFoundError(f"County dataset not found: {COUNTY_PATH}")
+
+
+def warn_if_fields_exist(fields_gdf: gpd.GeoDataFrame) -> None:
+    fields_to_check = ["STATEFP", "COUNTYFP", TEXT_FIELD_NAME]
+    if ADD_NUMERIC_FIELD:
+        fields_to_check.append(NUMERIC_FIELD_NAME)
+
+    existing = [col for col in fields_to_check if col in fields_gdf.columns]
+    if existing:
+        warn(
+            "The following field(s) already exist and will be overwritten: "
+            + ", ".join(existing)
+        )
 
 
 def build_reference_points(fields_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -115,6 +140,7 @@ def add_state_county(fields_gdf: gpd.GeoDataFrame, county_gdf: gpd.GeoDataFrame)
 def create_text_id(fields_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     out = fields_gdf.copy()
 
+    # Sequential order is based on STATEFP, COUNTYFP, and original source index.
     sort_df = out.reset_index().rename(columns={"index": "SRC_INDEX"})
     sort_df = sort_df.sort_values(by=["STATEFP", "COUNTYFP", "SRC_INDEX"], na_position="last").copy()
 
@@ -151,9 +177,13 @@ def add_numeric_id(fields_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         return out
 
     if NUMERIC_FIELD_TYPE == "DOUBLE":
-        out[NUMERIC_FIELD_NAME] = pd.to_numeric(out[TEXT_FIELD_NAME], errors="coerce").astype("float64")
+        out[NUMERIC_FIELD_NAME] = pd.to_numeric(
+            out[TEXT_FIELD_NAME], errors="coerce"
+        ).astype("float64")
     elif NUMERIC_FIELD_TYPE == "BIGINTEGER":
-        out[NUMERIC_FIELD_NAME] = pd.to_numeric(out[TEXT_FIELD_NAME], errors="coerce").astype("Int64")
+        out[NUMERIC_FIELD_NAME] = pd.to_numeric(
+            out[TEXT_FIELD_NAME], errors="coerce"
+        ).astype("Int64")
 
     return out
 
@@ -164,20 +194,31 @@ def qa_checks(fields_gdf: gpd.GeoDataFrame) -> None:
     duplicates = int(vals.duplicated().sum())
     nulls = int(fields_gdf[TEXT_FIELD_NAME].isna().sum())
     length_errors = int((vals.str.len() != 11).sum())
+    assigned_county = int(fields_gdf["STATEFP"].notna().sum())
+    total_records = len(fields_gdf)
 
-    log(f"Duplicates: {duplicates}")
-    log(f"Nulls: {nulls}")
-    log(f"Length errors: {length_errors}")
+    log("QA summary:")
+    log(f"  Total records: {total_records}")
+    log(f"  Records with county assigned: {assigned_county}")
+    log(f"  Null IDs: {nulls}")
+    log(f"  Duplicate IDs: {duplicates}")
+    log(f"  Length errors: {length_errors}")
 
 
 def main() -> None:
     validate_numeric_type(NUMERIC_FIELD_TYPE)
+    validate_inputs()
 
     log("Reading field polygons...")
     fields_gdf = read_geodata(FIELDS_PATH, FIELDS_LAYER)
 
+    log(f"Field records loaded: {len(fields_gdf)}")
+    warn_if_fields_exist(fields_gdf)
+
     log("Reading county boundaries...")
     county_gdf = read_geodata(COUNTY_PATH, COUNTY_LAYER)
+
+    log(f"County records loaded: {len(county_gdf)}")
 
     if fields_gdf.crs is None or county_gdf.crs is None:
         raise ValueError("Both input datasets must have a defined CRS.")
@@ -214,6 +255,7 @@ def main() -> None:
         out.to_file(output_path)
 
     log(f"Done: {output_path}")
+    log(f"Output records written: {len(out)}")
 
 
 if __name__ == "__main__":
