@@ -1,14 +1,14 @@
 # Field ID Generator
 
-Python geospatial script to create a standardized and unique identifier for polygon feature datasets.
+Python geospatial script to generate standardized and unique identifiers for polygon feature datasets based on U.S. state and county codes.
 
 ## Identifier format
 
 Each polygon receives a standardized identifier based on:
 
-- `STATEFP` = 2 digits
-- `COUNTYFP` = 3 digits
-- `SEQ` = 6 digits
+- `STATEFP` = 2 digits  
+- `COUNTYFP` = 3 digits  
+- `SEQ` = 6 digits  
 
 Example:
 
@@ -16,10 +16,10 @@ Example:
 
 ## Outputs
 
-The script creates:
+The script creates the following fields:
 
-- `Field_ID_TEXT`: text version of the standardized identifier
-- `Field_ID`: optional numeric version for platform-specific workflows
+- `Field_ID_TEXT`: primary standardized identifier (recommended)
+- `Field_ID`: optional numeric version for platform-specific workflows (e.g., ArcGIS Pro)
 
 ## Public county source
 
@@ -28,6 +28,7 @@ This workflow uses a public U.S. Census Bureau county boundary dataset.
 A suitable source is the U.S. Census Bureau Cartographic Boundary Files, such as the county layer distributed in `cb_2018_us_county_500k`.
 
 The county dataset must contain:
+
 - `STATEFP`
 - `COUNTYFP`
 
@@ -35,13 +36,15 @@ These public Census fields provide the official state and county codes used to b
 
 ## Method
 
-This workflow uses a single reference point for each polygon.
+This workflow uses a single internal reference point for each polygon to perform spatial assignment to county boundaries.
 
 The reference point is defined as:
-- the polygon centroid when it falls within or on the polygon
-- otherwise, an internal representative point
+
+- the polygon centroid when it falls within or on the polygon  
+- otherwise, an internal representative point  
 
 This reference point is spatially joined to the county boundary dataset to retrieve:
+
 - `STATEFP`
 - `COUNTYFP`
 
@@ -52,6 +55,7 @@ These values are then used to build the standardized identifier.
 The script can optionally create a numeric companion field for platform-specific workflows.
 
 Available options:
+
 - `DOUBLE`
 - `BIGINTEGER`
 
@@ -59,11 +63,11 @@ This allows flexibility for different publication or data-consumption environmen
 
 ## Requirements
 
-- Python geospatial environment
-- `geopandas`
-- `pandas`
-- polygon feature dataset
-- county boundary dataset containing `STATEFP` and `COUNTYFP`
+- Python geospatial environment  
+- `geopandas`  
+- `pandas`  
+- polygon feature dataset  
+- county boundary dataset containing `STATEFP` and `COUNTYFP`  
 
 ## Coordinate reference system (CRS)
 
@@ -88,14 +92,22 @@ Update these variables in `generate_field_id_geopandas.py`:
 - `NUMERIC_FIELD_TYPE`
 - `TEXT_FIELD_NAME`
 
+## Example output
+
+| STATEFP | COUNTYFP | Field_ID_TEXT | Field_ID |
+|--------|----------|--------------|---------|
+| 28     | 001      | 28001000001  | 28001000001 |
+| 28     | 001      | 28001000002  | 28001000002 |
+
 ## Notes
 
-- `Field_ID_TEXT` preserves the standardized identifier structure
-- `Field_ID` can be used as an optional numeric companion field
-- county assignment is based on a single reference point per polygon
+- `Field_ID_TEXT` preserves the standardized identifier structure and is the recommended field for consistent use  
+- `Field_ID` is provided as an optional numeric companion field for compatibility with certain platforms  
+- County assignment is based on a single internal reference point per polygon  
+- The sequential component (`SEQ`) is generated based on dataset ordering within each county. If the dataset changes (e.g., new polygons are added or ordering changes), sequence values may change  
 
 ## Author
 
-Flávia Souza
+Flávia Souza  
 
 Precision agriculture and geospatial data workflows
