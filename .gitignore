@@ -1,0 +1,27 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Geospatial data
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.gpkg
+*.geojson
+*.parquet
+*.feather
+*.gdb/
+*.fgdb/
+
+# Jupyter / env
+.ipynb_checkpoints/
+.env
+.venv/
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
